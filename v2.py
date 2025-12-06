@@ -112,10 +112,12 @@ class Block(nn.Module):
         head_size = n_embd // n_head
         self.sa = MultiHeadAttention(num_heads=n_head, head_size=head_size)
         self.ffwd = FeedForward(n_embd=n_embd)
+        self.ln_1 = nn.LayerNorm(n_embd)
+        self.ln_2 = nn.LayerNorm(n_embd)
 
     def forward(self, x):
-        x = x + self.sa(x)
-        x = x + self.ffwd(x)
+        x = x + self.sa(self.ln_1(x))
+        x = x + self.ffwd(self.ln_2(x))
         return x 
 
 class Head(nn.Module):
@@ -153,6 +155,7 @@ class BigramLanguageModel(nn.Module):
             Block(n_embd, n_head=4),
             Block(n_embd, n_head=4),
             Block(n_embd, n_head=4),
+            nn.LayerNorm(n_embd),
         )
         self.lm_head = nn.Linear(n_embd, vocab_size)
 
