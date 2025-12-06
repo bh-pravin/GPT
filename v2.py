@@ -1,4 +1,5 @@
 import urllib3
+import os 
 import torch
 import torch.nn as nn 
 import torch.nn.functional as F 
@@ -18,15 +19,17 @@ torch.manual_seed(1337)
 
 url = 'https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt'
 file_name = 'input.txt'
-http = urllib3.PoolManager()
-response = http.request("GET", url=url)
-if response.status == 200:
-    with open(file=file_name, mode='wb') as f:
-        f.write(response.data)
+if os.path.exists(path=file_name):
+    with open(file=file_name, mode='r', encoding='utf-8') as f:
+        text = f.read()
+else:
+    http = urllib3.PoolManager()
+    response = http.request("GET", url=url)
+    if response.status == 200:
+        with open(file=file_name, mode='wb') as f:
+            f.write(response.data)
         print('file download successfully.')
 
-with open(file=file_name, mode='r', encoding='utf-8') as f:
-    text = f.read()
 
 # here are all the unique characters that occur in this text
 chars = sorted(list(set(text)))
@@ -74,6 +77,16 @@ def estimate_loss():
     model.train()
     return out
 
+class MultiHeadAttention(nn.Module):
+    """ multiple heads of self-attention in parallel """
+
+    def __init__(self, num_heads, head_size):
+        super().__init__()
+        self.heads = nn.ModuleList([Head(head_size=head_size) for _ in range(num_heads)])
+
+    def forward(self, x):
+        return torch.cat([h(x) for h in self.heads], dim=-1)
+
 class Head(nn.Module):
     """one head of self-attention"""
 
@@ -105,7 +118,7 @@ class BigramLanguageModel(nn.Module):
         # each token directly reads off the logits for the next token from a lookup table
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
-        self.sa_head = Head(n_embd)
+        self.sa_heads = MultiHeadAttention(num_heads=4, head_size=n_embd // 4) # i.e 4 heads of 8-dimensional self-attention
         self.lm_head = nn.Linear(n_embd, vocab_size)
 
     def forward(self, idx, target=None):
@@ -115,7 +128,7 @@ class BigramLanguageModel(nn.Module):
         tok_emb = self.token_embedding_table(idx) # (B, T, C)
         pos_emb = self.position_embedding_table(torch.arange(T, device=device)) # T, C
         x = tok_emb + pos_emb   # (B, T, C)
-        x = self.sa_head(x) # apply one head of self-attention. (B, T, C)
+        x = self.sa_heads(x) # apply one head of self-attention. (B, T, C)
         logits = self.lm_head(x) # (B, T, vocab_size)
 
 
