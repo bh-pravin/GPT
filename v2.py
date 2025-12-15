@@ -228,4 +228,8 @@ for iter in range(max_iters):
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
 # print(decode(model.generate(context, max_new_tokens=500)[0].tolist()))
 open('more.txt', 'w').write(decode(model.generate(context, max_new_tokens=10000)[0].tolist()))
-torch.save(model.state_dict(), 'model.pt')
+# torch.save(model.state_dict(), 'model.pt')
+
+from safetensors.torch import save_file
+state_dict = model.state_dict()
+save_file(state_dict, 'model.safetensors')
